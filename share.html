@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BookHive — Your Offline Classic Library</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600&family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:       #120705;
+      --ink-2:     #1b0d08;
+      --ink-3:     #2a130b;
+      --ink-4:     #3a1c10;
+      --gold:      #ffb62e;
+      --gold-pale: #f4d29c;
+      --parchment: #fff6e5;
+      --ember:     #c96a2a;
+      --ember-dim: #7a3e1a;
+      --text-main: #f0e2d0;
+      --text-muted: #a07860;
+      --text-dim:  #5e3e2c;
+      --border:    rgba(255,182,46,0.12);
+      --border-hi: rgba(255,182,46,0.28);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--ink);
+      color: var(--text-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── PAGE FADE IN ─── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(-2deg); }
+      50%       { transform: translateY(-14px) rotate(-2deg); }
+    }
+    @keyframes floatShadow {
+      0%, 100% { transform: scaleX(1); opacity: .35; }
+      50%       { transform: scaleX(0.82); opacity: .18; }
+    }
+    @keyframes blobDrift {
+      0%   { transform: translate(0,0) scale(1); }
+      33%  { transform: translate(40px,-30px) scale(1.08); }
+      66%  { transform: translate(-20px,20px) scale(0.95); }
+      100% { transform: translate(0,0) scale(1); }
+    }
+    @keyframes blobDrift2 {
+      0%   { transform: translate(0,0) scale(1); }
+      40%  { transform: translate(-50px,30px) scale(1.1); }
+      70%  { transform: translate(30px,-20px) scale(0.92); }
+      100% { transform: translate(0,0) scale(1); }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -200% center; }
+      100% { background-position:  200% center; }
+    }
+    @keyframes shine {
+      0%   { left: -80%; }
+      60%, 100% { left: 120%; }
+    }
+    @keyframes particleFly {
+      0%   { transform: translateY(0) translateX(0) scale(1); opacity: .6; }
+      100% { transform: translateY(-120vh) translateX(var(--dx)) scale(0.3); opacity: 0; }
+    }
+    @keyframes glowPulse {
+      0%, 100% { opacity: .55; }
+      50%       { opacity: .9; }
+    }
+    @keyframes badgePop {
+      from { opacity: 0; transform: translateY(6px) scale(0.94); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes statCount {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── BACKGROUND ─── */
+    .bg-scene {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(90px);
+    }
+    .blob-1 {
+      width: 520px; height: 520px;
+      background: radial-gradient(circle, rgba(201,106,42,0.18) 0%, transparent 70%);
+      top: -120px; left: -100px;
+      animation: blobDrift 18s ease-in-out infinite;
+    }
+    .blob-2 {
+      width: 420px; height: 420px;
+      background: radial-gradient(circle, rgba(255,182,46,0.13) 0%, transparent 70%);
+      bottom: 80px; right: -80px;
+      animation: blobDrift2 22s ease-in-out infinite;
+    }
+    .blob-3 {
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(122,62,26,0.22) 0%, transparent 70%);
+      top: 55%; left: 45%;
+      animation: blobDrift 28s ease-in-out infinite reverse;
+    }
+
+    /* Particle canvas layer */
+    .particles {
+      position: absolute;
+      inset: 0;
+    }
+    .particle {
+      position: absolute;
+      width: 2px; height: 2px;
+      background: var(--gold);
+      border-radius: 50%;
+      animation: particleFly var(--dur) var(--delay) ease-in infinite;
+    }
+
+    /* ─── LAYOUT ─── */
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 20px 60px;
+    }
+
+    /* ─── NAV ─── */
+    .nav {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 0 0;
+      animation: fadeIn .8s ease both;
+    }
+    .nav-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: .5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-logo svg {
+      width: 26px; height: 26px;
+      fill: none;
+      stroke: var(--gold);
+      stroke-width: 1.8;
+    }
+    .nav-pill {
+      background: rgba(255,182,46,0.08);
+      border: 1px solid var(--border-hi);
+      padding: 7px 18px;
+      border-radius: 30px;
+      font-size: .78rem;
+      font-weight: 500;
+      color: var(--gold-pale);
+      letter-spacing: .4px;
+    }
+
+    /* ─── HERO ─── */
+    .hero {
+      width: 100%;
+      max-width: 900px;
+      margin-top: 60px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 50px;
+      align-items: center;
+    }
+
+    .hero-text {
+      animation: fadeUp .9s .2s ease both;
+    }
+    .hero-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,182,46,0.07);
+      border: 1px solid rgba(255,182,46,0.2);
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: .75rem;
+      font-weight: 500;
+      color: var(--gold);
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      margin-bottom: 22px;
+    }
+    .hero-kicker span { 
+      display: inline-block;
+      width: 6px; height: 6px;
+      background: var(--gold);
+      border-radius: 50%;
+      animation: glowPulse 2s ease-in-out infinite;
+    }
+    .hero-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      font-weight: 900;
+      line-height: 1.12;
+      color: var(--parchment);
+      margin-bottom: 18px;
+    }
+    .hero-title em {
+      font-style: italic;
+      color: var(--gold);
+    }
+    .hero-subtitle {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.18rem;
+      font-weight: 300;
+      line-height: 1.7;
+      color: var(--text-muted);
+      margin-bottom: 36px;
+      max-width: 380px;
+    }
+
+    /* CTA */
+    .btn-cta {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 36px;
+      border-radius: 50px;
+      background: linear-gradient(135deg, #ffb62e 0%, #e8950e 50%, #ffb62e 100%);
+      background-size: 200% 100%;
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(255,182,46,0.30), 0 1px 0 rgba(255,255,255,0.15) inset;
+      transition: transform .2s ease, box-shadow .2s ease, background-position .4s ease;
+      text-decoration: none;
+      animation: fadeUp .9s .4s ease both;
+    }
+    .btn-cta::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -80%;
+      width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+      animation: shine 3.5s 1.2s ease infinite;
+    }
+    .btn-cta:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 32px rgba(255,182,46,0.45), 0 1px 0 rgba(255,255,255,0.15) inset;
+      background-position: 100% 0;
+    }
+    .btn-cta:active {
+      transform: translateY(-1px) scale(0.98);
+    }
+    .btn-cta svg {
+      width: 18px; height: 18px;
+      stroke: var(--ink);
+      stroke-width: 2;
+      fill: none;
+      flex-shrink: 0;
+      transition: transform .2s;
+    }
+    .btn-cta:hover svg { transform: translateX(3px); }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 15px 28px;
+      border-radius: 50px;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: .95rem;
+      font-weight: 400;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      text-decoration: none;
+      transition: all .25s ease;
+      animation: fadeUp .9s .5s ease both;
+    }
+    .btn-secondary:hover {
+      border-color: var(--border-hi);
+      color: var(--text-main);
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    /* ─── BOOK SHOWCASE ─── */
+    .hero-visual {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      animation: fadeUp .9s .35s ease both;
+    }
+
+    /* ambient glow */
+    .glow-ring {
+      position: absolute;
+      width: 260px; height: 260px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,182,46,0.22) 0%, transparent 65%);
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      animation: glowPulse 3s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .book-wrapper {
+      position: relative;
+      z-index: 2;
+      animation: float 5s ease-in-out infinite;
+    }
+    .book-shadow {
+      width: 140px; height: 16px;
+      background: rgba(0,0,0,0.5);
+      border-radius: 50%;
+      margin: 0 auto;
+      filter: blur(10px);
+      animation: floatShadow 5s ease-in-out infinite;
+    }
+    .book-cover-img {
+      display: block;
+      width: 170px;
+      height: 248px;
+      object-fit: cover;
+      border-radius: 4px 12px 12px 4px;
+      box-shadow:
+        -4px 0 0 #0a0402,
+        -8px 4px 0 #150a05,
+        0 24px 60px rgba(0,0,0,0.8),
+        4px 0 20px rgba(255,182,46,0.12);
+      transition: transform .4s ease, box-shadow .4s ease;
+    }
+    .book-cover-img:hover {
+      transform: perspective(600px) rotateY(-8deg) rotateX(3deg) scale(1.04);
+      box-shadow:
+        -4px 0 0 #0a0402,
+        -8px 4px 0 #150a05,
+        0 32px 80px rgba(0,0,0,0.9),
+        8px 0 30px rgba(255,182,46,0.22);
+    }
+
+    /* Reflection */
+    .book-reflection {
+      width: 170px;
+      height: 60px;
+      background: linear-gradient(to bottom, rgba(255,182,46,0.06) 0%, transparent 100%);
+      border-radius: 0 0 12px 4px;
+      transform: scaleY(-1);
+      opacity: .5;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,0.35), transparent);
+      -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.35), transparent);
+      display: none; /* shown via JS once image loads */
+    }
+
+    /* Book meta pill */
+    .book-meta-card {
+      position: absolute;
+      bottom: 36px;
+      right: -30px;
+      background: rgba(26,15,10,0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-hi);
+      border-radius: 14px;
+      padding: 14px 18px;
+      width: 180px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      animation: badgePop .7s .7s ease both;
+      opacity: 0;
+    }
+    .book-meta-title {
+      font-family: 'Playfair Display', serif;
+      font-size: .92rem;
+      font-weight: 700;
+      color: var(--parchment);
+      line-height: 1.3;
+      margin-bottom: 4px;
+    }
+    .book-meta-author {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: .82rem;
+      font-style: italic;
+      color: var(--gold-pale);
+    }
+    .book-meta-sep { height: 1px; background: var(--border); margin: 10px 0; }
+    .book-meta-row {
+      display: flex; align-items: center; gap: 6px;
+      font-size: .72rem; color: var(--text-muted);
+    }
+    .dot-gold { width: 5px; height: 5px; background: var(--gold); border-radius: 50%; flex-shrink: 0; }
+
+    /* ─── GLASS CARD ─── */
+    .glass-card {
+      width: 100%;
+      max-width: 900px;
+      margin-top: 70px;
+      background: rgba(26,15,10,0.6);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-hi);
+      border-radius: 24px;
+      padding: 40px 44px;
+      box-shadow: 0 8px 60px rgba(0,0,0,0.5), 0 1px 0 rgba(255,182,46,0.08) inset;
+      animation: fadeUp .9s .6s ease both;
+      opacity: 0;
+      transition: box-shadow .35s ease, transform .35s ease;
+    }
+    .glass-card:hover {
+      box-shadow: 0 12px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,182,46,0.18);
+      transform: translateY(-2px);
+    }
+
+    .card-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 50px;
+      align-items: start;
+    }
+
+    .section-label {
+      font-size: .7rem;
+      font-weight: 500;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 12px;
+      opacity: .8;
+    }
+    .book-main-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      font-weight: 900;
+      line-height: 1.15;
+      color: var(--parchment);
+      margin-bottom: 6px;
+    }
+    .book-main-author {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.1rem;
+      font-weight: 400;
+      font-style: italic;
+      color: var(--gold-pale);
+      margin-bottom: 18px;
+    }
+    .book-description {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.08rem;
+      font-weight: 300;
+      line-height: 1.72;
+      color: var(--text-muted);
+      display: -webkit-box;
+      -webkit-line-clamp: 5;
+      line-clamp: 5;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Badges */
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 24px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: rgba(255,182,46,0.07);
+      border: 1px solid rgba(255,182,46,0.18);
+      font-size: .75rem;
+      color: var(--gold-pale);
+      font-weight: 400;
+      animation: badgePop .6s ease both;
+    }
+    .badge:nth-child(1) { animation-delay: .8s; opacity:0; }
+    .badge:nth-child(2) { animation-delay: .9s; opacity:0; }
+    .badge:nth-child(3) { animation-delay: 1.0s; opacity:0; }
+    .badge:nth-child(4) { animation-delay: 1.1s; opacity:0; }
+    .badge-check { color: var(--gold); font-size: .85rem; }
+
+    /* Stats */
+    .stats-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .stat-block {
+      background: rgba(42,19,11,0.6);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px 22px;
+      transition: border-color .25s, transform .25s;
+      animation: statCount .7s ease both;
+      opacity: 0;
+    }
+    .stat-block:nth-child(1) { animation-delay: .7s; }
+    .stat-block:nth-child(2) { animation-delay: .8s; }
+    .stat-block:nth-child(3) { animation-delay: .9s; }
+    .stat-block:hover {
+      border-color: var(--border-hi);
+      transform: translateX(4px);
+    }
+    .stat-number {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--gold);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .stat-label {
+      font-size: .82rem;
+      color: var(--text-muted);
+      font-weight: 300;
+    }
+    .stat-bar {
+      height: 3px;
+      background: rgba(255,182,46,0.08);
+      border-radius: 2px;
+      margin-top: 12px;
+      overflow: hidden;
+    }
+    .stat-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--ember) 0%, var(--gold) 100%);
+      border-radius: 2px;
+      transform-origin: left;
+      transform: scaleX(0);
+      transition: transform 1.2s .9s cubic-bezier(.22,1,.36,1);
+    }
+
+    /* ─── CTA SECTION ─── */
+    .cta-section {
+      width: 100%;
+      max-width: 900px;
+      margin-top: 60px;
+      text-align: center;
+      animation: fadeUp .9s .9s ease both;
+      opacity: 0;
+    }
+    .cta-headline {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+      font-weight: 900;
+      color: var(--parchment);
+      line-height: 1.2;
+      margin-bottom: 14px;
+    }
+    .cta-headline em { color: var(--gold); font-style: italic; }
+    .cta-sub {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      margin-bottom: 36px;
+    }
+    .cta-btn-large {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px 52px;
+      border-radius: 60px;
+      background: linear-gradient(135deg, #ffb62e 0%, #e8950e 50%, #ffb62e 100%);
+      background-size: 200% 100%;
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 6px rgba(255,182,46,0.1),
+        0 0 0 14px rgba(255,182,46,0.05),
+        0 8px 40px rgba(255,182,46,0.35),
+        0 1px 0 rgba(255,255,255,0.2) inset;
+      transition: transform .25s ease, box-shadow .25s ease, background-position .5s ease;
+      text-decoration: none;
+    }
+    .cta-btn-large::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -80%;
+      width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      animation: shine 3s 1.5s ease infinite;
+    }
+    .cta-btn-large:hover {
+      transform: translateY(-4px) scale(1.02);
+      box-shadow:
+        0 0 0 8px rgba(255,182,46,0.12),
+        0 0 0 18px rgba(255,182,46,0.06),
+        0 12px 50px rgba(255,182,46,0.5),
+        0 1px 0 rgba(255,255,255,0.2) inset;
+      background-position: 100% 0;
+    }
+    .cta-btn-large:active { transform: translateY(-1px) scale(0.99); }
+    .cta-btn-large svg {
+      width: 20px; height: 20px;
+      stroke: var(--ink);
+      stroke-width: 2;
+      fill: none;
+      transition: transform .2s;
+    }
+    .cta-btn-large:hover svg { transform: translateX(4px); }
+
+    .trust-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 28px;
+      margin-top: 28px;
+      flex-wrap: wrap;
+    }
+    .trust-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .78rem;
+      color: var(--text-dim);
+    }
+    .trust-item svg {
+      width: 14px; height: 14px;
+      stroke: var(--ember);
+      stroke-width: 2;
+      fill: none;
+    }
+
+    /* ─── FOOTER ─── */
+    .footer {
+      width: 100%;
+      max-width: 900px;
+      margin-top: 60px;
+      padding-top: 28px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: .78rem;
+      color: var(--text-dim);
+      animation: fadeIn 1s 1.2s ease both;
+      opacity: 0;
+    }
+    .footer-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: .95rem;
+      color: var(--text-muted);
+    }
+
+    /* ─── LOADER ─── */
+    .loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      padding: 60px 0;
+    }
+    .loader-ring {
+      width: 44px; height: 44px;
+      border: 2.5px solid rgba(255,182,46,0.15);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-text {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1rem;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+    .hidden { display: none !important; }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 720px) {
+      .hero {
+        grid-template-columns: 1fr;
+        gap: 50px;
+        margin-top: 40px;
+      }
+      .hero-visual { order: -1; }
+      .book-meta-card { right: 10px; bottom: 20px; }
+      .card-inner { grid-template-columns: 1fr; gap: 30px; }
+      .glass-card { padding: 28px 22px; }
+      .footer { flex-direction: column; gap: 12px; text-align: center; }
+      .trust-row { gap: 16px; }
+    }
+    @media (max-width: 460px) {
+      .hero-title { font-size: 2rem; }
+      .cta-btn-large { padding: 17px 36px; font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Background scene -->
+<div class="bg-scene" aria-hidden="true">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+  <div class="particles" id="particles"></div>
+</div>
+
+<div class="page">
+
+  <!-- Nav -->
+  <nav class="nav">
+    <div class="nav-logo">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M2 6s1.5-2 5-2 5 2 5 2v14s-1.5-1-5-1-5 1-5 1V6z"/>
+        <path d="M12 6s1.5-2 5-2 5 2 5 2v14s-1.5-1-5-1-5 1-5 1V6z"/>
+      </svg>
+      BookHive
+    </div>
+    <div class="nav-pill">Free to Download</div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-text">
+      <div class="hero-kicker">
+        <span></span>
+        Now Reading
+      </div>
+      <h1 class="hero-title">
+        Carry the world's<br>
+        <em>great library</em><br>
+        in your pocket.
+      </h1>
+      <p class="hero-subtitle">
+        Thousands of classic books — beautifully formatted, offline-ready, with rich typography and a reading experience crafted for long sessions.
+      </p>
+      <div class="hero-actions">
+        <a id="hero-cta" class="btn-cta" href="#" role="button">
+          Read Free on BookHive
+          <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+        <a class="btn-secondary" href="#book-card">
+          Learn more
+        </a>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="glow-ring"></div>
+      <div class="book-wrapper">
+        <img id="cover-img" class="book-cover-img"
+          src="https://bookhive-content.pages.dev/covers/default.jpg"
+          alt="Featured Book Cover"
+          width="170" height="248"
+          onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'170\' height=\'248\' viewBox=\'0 0 170 248\'%3E%3Crect width=\'170\' height=\'248\' fill=\'%232a130b\'/%3E%3Ctext x=\'85\' y=\'130\' text-anchor=\'middle\' fill=\'%23f4d29c\' font-size=\'14\' font-family=\'serif\'%3EClassic%3C/text%3E%3C/svg%3E'">
+      </div>
+      <div class="book-shadow"></div>
+
+      <div class="book-meta-card" id="meta-card">
+        <div class="book-meta-title" id="meta-title">Pride and Prejudice</div>
+        <div class="book-meta-author" id="meta-author">by Jane Austen</div>
+        <div class="book-meta-sep"></div>
+        <div class="book-meta-row">
+          <div class="dot-gold"></div>
+          <span id="meta-genre">Classic Fiction</span>
+        </div>
+        <div class="book-meta-row" style="margin-top:4px">
+          <div class="dot-gold"></div>
+          <span>Offline Ready</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Glass Card: Featured Book Details -->
+  <div class="glass-card" id="book-card">
+    <div class="card-inner">
+
+      <div>
+        <div class="section-label">Featured Classic</div>
+        <h2 class="book-main-title" id="card-title">Pride and Prejudice</h2>
+        <div class="book-main-author" id="card-author">Jane Austen</div>
+        <p class="book-description" id="card-desc">
+          A masterwork of wit and social observation, following the spirited Elizabeth Bennet as she navigates love, class, and pride in Regency-era England. One of literature's most beloved novels — timeless, sharp, and endlessly rereadable.
+        </p>
+        <div class="badges">
+          <div class="badge"><span class="badge-check">✓</span> Free Classics</div>
+          <div class="badge"><span class="badge-check">✓</span> Offline Reading</div>
+          <div class="badge"><span class="badge-check">✓</span> No Ads</div>
+          <div class="badge"><span class="badge-check">✓</span> Personalized Library</div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-block">
+          <div class="stat-number">50K+</div>
+          <div class="stat-label">Monthly Active Readers</div>
+          <div class="stat-bar"><div class="stat-fill" style="--w:.88"></div></div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-number">1,200+</div>
+          <div class="stat-label">Classic Books in Library</div>
+          <div class="stat-bar"><div class="stat-fill" style="--w:.72"></div></div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-number">100%</div>
+          <div class="stat-label">Works Offline, Always</div>
+          <div class="stat-bar"><div class="stat-fill" style="--w:1"></div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CTA Section -->
+  <section class="cta-section">
+    <h2 class="cta-headline">
+      Start reading in<br><em>under 30 seconds.</em>
+    </h2>
+    <p class="cta-sub">Free forever. No account required to browse.</p>
+    <a id="main-cta" class="cta-btn-large" href="#" role="button">
+      Get BookHive — It's Free
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <polyline points="8 17 12 21 16 17"/>
+        <line x1="12" y1="3" x2="12" y2="21"/>
+      </svg>
+    </a>
+    <div class="trust-row" aria-label="Trust indicators">
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        No sign-up needed
+      </div>
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        Available on Android
+      </div>
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        4.8★ rated
+      </div>
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        No ads during reading
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-logo">BookHive</div>
+    <div>© 2025 BookHive · Classic Literature · Free Forever</div>
+  </footer>
+
+</div>
+
+<script>
+(function() {
+  // ── Particles
+  const canvas = document.getElementById('particles');
+  const count = 22;
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.cssText = `
+      left: ${Math.random()*100}%;
+      bottom: ${Math.random()*30}%;
+      --dx: ${(Math.random()-0.5)*160}px;
+      --dur: ${6 + Math.random()*10}s;
+      --delay: ${Math.random()*12}s;
+      opacity: ${0.2 + Math.random()*0.4};
+      width: ${1 + Math.random()*2}px;
+      height: ${1 + Math.random()*2}px;
+    `;
+    canvas.appendChild(p);
+  }
+
+  // ── URL params
+  const urlParams = new URLSearchParams(window.location.search);
+  const bookId = urlParams.get('id');
+  let playStoreUrl = 'https://play.google.com/store/apps/details?id=com.bookhivem.app';
+  if (bookId) playStoreUrl += '&referrer=' + encodeURIComponent(bookId);
+
+  // ── Stat bar animation (IntersectionObserver)
+  const fills = document.querySelectorAll('.stat-fill');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const w = parseFloat(e.target.style.getPropertyValue('--w') || 1);
+        e.target.style.transform = `scaleX(${w})`;
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.3 });
+  fills.forEach(f => observer.observe(f));
+
+  // ── Load book metadata
+  function applyBook(book) {
+    if (!book) return;
+    const cover = document.getElementById('cover-img');
+    if (book.cover_url) cover.src = book.cover_url;
+    document.getElementById('card-title').textContent = book.title || 'Classic Book';
+    document.getElementById('card-author').textContent = book.author || '';
+    document.getElementById('card-desc').textContent = book.description || 'A timeless classic waiting to be discovered.';
+    document.getElementById('meta-title').textContent = book.title || 'Classic Book';
+    document.getElementById('meta-author').textContent = 'by ' + (book.author || '');
+    if (book.genre) document.getElementById('meta-genre').textContent = book.genre;
+    document.title = (book.title || 'Classic Book') + ' — Read on BookHive';
+  }
+
+  if (bookId) {
+    fetch('https://bookhive-content.pages.dev/metadata/books.json')
+      .then(r => r.json())
+      .then(books => {
+        const book = books.find(b => String(b.id) === String(bookId));
+        applyBook(book);
+      })
+      .catch(() => {});
+  }
+
+  // ── CTA click handlers
+  function handleCta(e) {
+    e.preventDefault();
+    if (bookId) {
+      window.location.href = 'bookhive://book/' + bookId;
+    }
+    setTimeout(() => { window.location.href = playStoreUrl; }, 1500);
+  }
+  document.getElementById('hero-cta').addEventListener('click', handleCta);
+  document.getElementById('main-cta').addEventListener('click', handleCta);
+
+  // ── Cursor glow
+  const glow = document.querySelector('.glow-ring');
+  document.addEventListener('mousemove', (e) => {
+    const card = document.querySelector('.hero-visual').getBoundingClientRect();
+    const dx = e.clientX - (card.left + card.width/2);
+    const dy = e.clientY - (card.top + card.height/2);
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const intensity = Math.max(0, 1 - dist/300);
+    if (glow) glow.style.opacity = 0.55 + intensity * 0.35;
+  });
+})();
+</script>
+</body>
+</html>
